@@ -9,6 +9,8 @@ UNIX_GFLAGS_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
 UNIX_GLOG_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
 UNIX_PROTOBUF_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
 UNIX_PROTOC_BINARY ?= $(UNIX_PROTOBUF_DIR)/bin/protoc
+UNIX_CCTZ_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
+UNIX_ABSL_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
 UNIX_CBC_DIR ?= $(OR_TOOLS_TOP)/dependencies/install
 UNIX_CGL_DIR ?= $(UNIX_CBC_DIR)
 UNIX_CLP_DIR ?= $(UNIX_CBC_DIR)
@@ -21,6 +23,8 @@ PROTOC_BINARY := $(shell $(WHICH) ${UNIX_PROTOC_BINARY})
 GFLAGS_TAG = 2.2.1
 GLOG_TAG = 0.3.5
 PROTOBUF_TAG = 3.6.1
+CCTZ_TAG = master
+ABSL_TAG = master
 CBC_TAG = 2.9.9
 CGL_TAG = 0.59.10
 CLP_TAG = 1.16.11
@@ -110,6 +114,8 @@ build_third_party: \
  build_gflags \
  build_glog \
  build_protobuf \
+ build_cctz \
+ build_abseil \
  build_cbc
 
 .PHONY: archives_directory
@@ -321,6 +327,69 @@ dependencies/install/lib/protobuf.jar: | dependencies/install/lib/libprotobuf.$L
  "$(JAVAC_BIN)" com/google/protobuf/*java
 	cd dependencies/sources/protobuf-$(PROTOBUF_TAG)/java/core/src/main/java && \
  "$(JAR_BIN)" cvf ../../../../../../../install/lib/protobuf.jar com/google/protobuf/*class
+
+############
+##  CCTZ  ##
+############
+# This uses cctz cmake-based build.
+.PHONY: build_cctz
+build_cctz: dependencies/install/lib/libcctz.$L
+
+dependencies/install/lib/libcctz.$L: dependencies/sources/cctz-$(CCTZ_TAG) | dependencies/install
+	cd dependencies/sources/cctz-$(CCTZ_TAG)/build_cmake && \
+  $(SET_COMPILER) $(CMAKE) -H. -Bbuild_cmake \
+    -DBUILD_SHARED_LIBS=ON \
+    -D BUILD_EXAMPLES=OFF \
+    -DBUILD_TESTING=OFF \
+    -DCMAKE_CXX_FLAGS="-fPIC $(MAC_VERSION)" \
+    -D CMAKE_PREFIX_PATH="$(OR_TOOLS_TOP)/dependencies/install" \
+    -DCMAKE_INSTALL_PREFIX=../../install && \
+  $(CMAKE) --build build_cmake -- -j 4 && \
+  $(CMAKE) --build build_cmake --target install
+
+dependencies/sources/cctz-$(CCTZ_TAG): | dependencies/sources
+	-$(DELREC) dependencies/sources/cctz-$(CCTZ_TAG)
+	git clone --quiet -b $(CCTZ_TAG) https://github.com/google/cctz.git dependencies/sources/cctz-$(CCTZ_TAG)
+	cd dependencies/sources/cctz-$(CCTZ_TAG) && git apply "$(OR_TOOLS_TOP)/patches/cctz-$(CCTZ_TAG).patch"
+
+CCTZ_INC = -I$(UNIX_CCTZ_DIR)/include
+CCTZ_SWIG = $(CCTZ_INC)
+STATIC_CCTZ_LNK = $(UNIX_CCTZ_DIR)/lib/libcctz.a
+DYNAMIC_CCTZ_LNK = -L$(UNIX_CCTZ_DIR)/lib -lcctz
+
+CCTZ_LNK = $(DYNAMIC_CCTZ_LNK)
+DEPENDENCIES_LNK += $(CCTZ_LNK)
+OR_TOOLS_LNK += $(CCTZ_LNK)
+
+##################
+##  ABSEIL-CPP  ##
+##################
+# This uses abseil-cpp cmake-based build.
+build_abseil-cpp: dependencies/install/lib/libabsl.$L
+
+dependencies/install/lib/libabsl.$L: dependencies/sources/abseil-cpp-$(ABSL_TAG) | dependencies/install
+	cd dependencies/sources/abseil-cpp-$(ABSL_TAG) && \
+  $(SET_COMPILER) $(CMAKE) -H. -Bbuild_cmake \
+    -D BUILD_SHARED_LIBS=OFF \
+    -D CMAKE_CXX_FLAGS="-fPIC $(MAC_VERSION)" \
+    -D CMAKE_PREFIX_PATH="$(OR_TOOLS_TOP)/dependencies/install" \
+    -DCMAKE_INSTALL_PREFIX=../../install && \
+  $(CMAKE) --build build_cmake -- -j 4 && \
+  $(CMAKE) --build build_cmake --target install
+
+dependencies/sources/abseil-cpp-$(ABSL_TAG): | dependencies/sources
+	-$(DELREC) dependencies/sources/abseil-cpp-$(ABSL_TAG)
+	git clone --quiet -b $(ABSL_TAG) https://github.com/abseil/abseil-cpp.git dependencies/sources/abseil-cpp-$(ABSL_TAG)
+	cd dependencies/sources/abseil-cpp-$(ABSL_TAG) && git apply "$(OR_TOOLS_TOP)/patches/abseil-cpp-$(ABSL_TAG).patch"
+
+ABSL_INC = -I$(UNIX_ABSL_DIR)/include
+ABSL_SWIG = $(ABSL_INC)
+STATIC_ABSL_LNK = $(UNIX_ABSL_DIR)/lib/libabsl.a
+DYNAMIC_ABSL_LNK = -L$(UNIX_ABSL_DIR)/lib -labsl
+
+ABSL_LNK = $(DYNAMIC_ABSL_LNK)
+DEPENDENCIES_LNK += $(ABSL_LNK)
+OR_TOOLS_LNK += $(ABSL_LNK)
 
 ############################################
 ##  Install Patchelf on linux platforms.  ##
@@ -671,6 +740,7 @@ clean_third_party:
 	-$(DELREC) dependencies/sources/glog*
 	-$(DELREC) dependencies/sources/protobuf*
 	-$(DELREC) dependencies/sources/google*
+	-$(DELREC) dependencies/sources/abseil-cpp*
 	-$(DELREC) dependencies/sources/Cbc*
 	-$(DELREC) dependencies/sources/Cgl*
 	-$(DELREC) dependencies/sources/Clp*
