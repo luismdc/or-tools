@@ -60,6 +60,16 @@ ifeq ($(wildcard $(PROTOC_BINARY)),)
 else
 	$(info PROTOC: found)
 endif
+ifeq ($(wildcard $(UNIX_CCTZ_DIR)/include/cctz/cctz.h),)
+	$(error Third party cctz files was not found! did you run 'make third_party' or set UNIX_CCTZ_DIR ?)
+else
+	$(info CCTZ: found)
+endif
+ifeq ($(wildcard $(UNIX_ABSL_DIR)/include/absl/base.h),)
+	$(error Third party Abseil-cpp files was not found! did you run 'make third_party' or set UNIX_ABSL_DIR ?)
+else
+	$(info ABSEIL-CPP: found)
+endif
 ifeq ($(wildcard $(UNIX_COINUTILS_DIR)/include/coinutils/coin/CoinModel.hpp $(UNIX_COINUTILS_DIR)/include/coin/CoinModel.hpp),)
 	$(error Third party CoinUtils files was not found! did you run 'make third_party' or set UNIX_COINUTILS_DIR ?)
 else
