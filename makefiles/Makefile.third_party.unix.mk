@@ -124,8 +124,7 @@ build_third_party: \
  build_gflags \
  build_glog \
  build_protobuf \
- build_cctz \
- build_abseil \
+ build_absl \
  build_cbc
 
 .PHONY: archives_directory
@@ -346,12 +345,14 @@ dependencies/install/lib/protobuf.jar: | dependencies/install/lib/libprotobuf.$L
 build_cctz: dependencies/install/lib/libcctz.$L
 
 dependencies/install/lib/libcctz.$L: dependencies/sources/cctz-$(CCTZ_TAG) | dependencies/install
-	cd dependencies/sources/cctz-$(CCTZ_TAG)/build_cmake && \
+	cd dependencies/sources/cctz-$(CCTZ_TAG) && \
   $(SET_COMPILER) $(CMAKE) -H. -Bbuild_cmake \
     -DBUILD_SHARED_LIBS=ON \
-    -D BUILD_EXAMPLES=OFF \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DBUILD_TOOLS=OFF \
+    -DBUILD_EXAMPLES=OFF \
     -DBUILD_TESTING=OFF \
-    -DCMAKE_CXX_FLAGS="-fPIC $(MAC_VERSION)" \
+    -DCMAKE_CXX_FLAGS="$(MAC_VERSION)" \
     -D CMAKE_PREFIX_PATH="$(OR_TOOLS_TOP)/dependencies/install" \
     -DCMAKE_INSTALL_PREFIX=../../install && \
   $(CMAKE) --build build_cmake -- -j 4 && \
@@ -375,9 +376,9 @@ OR_TOOLS_LNK += $(CCTZ_LNK)
 ##  ABSEIL-CPP  ##
 ##################
 # This uses abseil-cpp cmake-based build.
-build_abseil-cpp: dependencies/install/lib/libabsl.$L
+build_absl: dependencies/install/lib/libabsl.$L
 
-dependencies/install/lib/libabsl.$L: dependencies/sources/abseil-cpp-$(ABSL_TAG) | dependencies/install
+dependencies/install/lib/libabsl.$L: build_cctz dependencies/sources/abseil-cpp-$(ABSL_TAG) | dependencies/install
 	cd dependencies/sources/abseil-cpp-$(ABSL_TAG) && \
   $(SET_COMPILER) $(CMAKE) -H. -Bbuild_cmake \
     -D BUILD_SHARED_LIBS=OFF \
@@ -750,6 +751,7 @@ clean_third_party:
 	-$(DELREC) dependencies/sources/glog*
 	-$(DELREC) dependencies/sources/protobuf*
 	-$(DELREC) dependencies/sources/google*
+	-$(DELREC) dependencies/sources/cctz*
 	-$(DELREC) dependencies/sources/abseil-cpp*
 	-$(DELREC) dependencies/sources/Cbc*
 	-$(DELREC) dependencies/sources/Cgl*
